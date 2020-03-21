@@ -57,11 +57,9 @@ class GPRiskNeutral():
   """
   Predict by:
   1. Fit a GP to the data (X,fX)
-  2. Take the traianed hyperparameters from the GP
-  3. Compute the single and double convolutional kernel 
-      matrices. Make sure to used the trained hyperparams 
-      from step 2. 
-  4. Predict by computing the posterior GP fhat|fX, the 
+  2. Compute the single and double convolutional kernel 
+      matrices. 
+  3. Predict by computing the posterior GP fhat|fX, the 
       risk-neutral GP conditioned on the GP on f. 
 
   xx: 2d np.array; prediction points
