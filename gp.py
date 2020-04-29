@@ -10,12 +10,12 @@ Gaussian Process class
 class GaussianProcessRegressor():
   
   def __init__(self):
-    #self.dim    = 0;    # input data dimension
+    self.dim    = 0;    # input data dimension
     self.X      = None; # data points
     self.fX     = None; # function evals
     self.N      = 0     # number of training points
     self.L      = None; # cholesky factorization of rbf kernel matrix
-    self.num_multistart = 4; # for optimizing hyperparameters
+    self.num_multistart = 7; # for optimizing hyperparameters
     self.kernel = RBFKernel(); # kernel function
 
 
@@ -24,6 +24,7 @@ class GaussianProcessRegressor():
     # update data
     self.X  = X;
     self.fX = fX;
+    self.dim = X.shape[1]
     self.N  = len(fX)
 
     # optimize hyperparameters
@@ -126,6 +127,7 @@ class GaussianProcessRegressor():
     """ optimize hyperparameters via 
     maximizing log marginal likelihood
     """
+    #print("Tuning Hyperparams")
 
     # current hyperparams
     best = self.kernel.hyperparams
@@ -141,29 +143,26 @@ class GaussianProcessRegressor():
       if II == 0:
         x0 = best
       else:
+        #x0 = np.random.beta(1,6,self.kernel.num_hyperparams) # support on [0,1]
+        #x0 = bounds[:,0] + (bounds[:,1]-bounds[:,0])*x0
         x0      = np.random.uniform(bounds[:,0],bounds[:,1],self.kernel.num_hyperparams)
-
-      try:
-        # avoid ill-conditioning errors
-        # MAXIMIZE likelihood
-        #np.seterr(divide = 'ignore')  # for log(0.000...) errors 
-        sol = minimize(self.neglikelihood, x0, method='TNC',jac = self.gradneglikelihood, bounds =bounds) 
-        print(sol.x, sol.fun)  
-        #np.seterr(divide = 'warn') 
-        # replace best hypers
-        if sol.fun < val:
-          best = sol.x
-          val  = sol.fun;
-        II +=1
-        #print(sol)
-        #print(sol.x)
-        #print(sol.fun)
-        #print('')
-      except:
-        II +=1
+      
+      # MAXIMIZE likelihood
+      # TNC == Newton-Conjugate Gradients
+      sol = minimize(self.neglikelihood, x0, method='TNC',jac = self.gradneglikelihood, bounds =bounds) 
+      #print(sol.x, sol.fun)  
+      # replace best hypers
+      if sol.fun < val:
+        best = sol.x
+        val  = sol.fun;
+      II +=1
+      #print(sol)
+      #print(sol.x)
+      #print(sol.fun)
+      #print('')
 
     # save optimized hypers
     self.kernel.hyperparams = best;
-    print('')
+    #print('')
     print(best)
-    print('done')
+    #print('done')

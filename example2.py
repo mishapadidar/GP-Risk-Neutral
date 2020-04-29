@@ -15,16 +15,17 @@ EIStrategy, POIStrategy (random sampling, expected improvement
 probability of improvement)
 """
 import numpy as np
-from experimental_design import SymmetricLatinHypercube as SLHC
-from optimization import RiskNeutralOptimization
+from bayesopt import BayesianOptimization
+#from gp import GaussianProcessRegressor
+from surrogate import GaussianProcessRegressor
 from surrogate import GPRiskNeutral
-from strategy import randomStrategy, EIStrategy, POIStrategy
+from strategy import RandomStrategy, EIStrategy, POIStrategy
+from experimental_design import SymmetricLatinHypercube as SLHC
 import matplotlib.pyplot as plt
-from sklearn.metrics.pairwise import rbf_kernel
 
 
 # number of points used in plots
-II = 45
+II = 40
 
 #=============================================================
 # Run Bayesian Optimization
@@ -32,68 +33,62 @@ II = 45
 
 
 f = lambda x: -np.exp(-100*(x-0.8)**2)+np.exp(-2*(x-1)**2)+np.exp(-2*(x+1.5)**2)
-#f = lambda x: (x-1)**4 + 2*(x-1)**3 + 0.01*(x-2)**2 - 1.5*x
+#f = lambda x: np.exp(-(x-0.5)**2)*np.sin(30*x)
 dim        = 1
+max_evals  = 60
 Sigma      = 0.01*np.eye(dim)
-max_evals  = 50
 lb         = -1.5*np.ones(dim)
-ub         = 2.5*np.ones(dim)
-num_pts    = 4*dim + 1 # initial evaluations
+ub         = 1.5*np.ones(dim)
+num_pts    = 12*dim + 1 # initial evaluations
 exp_design = SLHC(dim, num_pts)
-#strategy   = randomSample(lb,ub)
 strategy   = POIStrategy(lb,ub)
+#strategy   = RandomStrategy(lb,ub)
+#strategy    = EIStrategy(lb,ub)
+surrogate  = GPRiskNeutral(Sigma)
+#surrogate  = GaussianProcessRegressor()
+surrogate.num_multistart =2 # for training hyperparams
 
 # initialize the problem
-problem    = RiskNeutralOptimization(f, dim, Sigma, max_evals, exp_design, strategy, lb, ub)
+problem    = BayesianOptimization(f,dim, max_evals, exp_design, strategy, surrogate,lb, ub)
 # solve it
-xopt,fopt  = problem.optimize()
+xopt,fopt  = problem.minimize()
 
 
 #=============================================================
 # Plot
 #=============================================================
 
-
 # get the function evaluations
 X  = problem.X
 fX = problem.fX
-fX_rn = problem.fX_rn
 Ntest = 300
 Xtest = np.linspace(lb,ub,Ntest).reshape((Ntest,dim))
 
 # fit the surrogate to the first II points
-GP = GPRiskNeutral(Sigma)
-GP.fit(X[:II],fX[:II])
+surrogate.fit(X[:II],fX[:II])
+#print('')
+#print(surrogate.GP.kernel.hyperparams)
+
 
 # predict the risk neutral and standard error
-ftest, std = GP.predict(Xtest, std=True)
+ftest, std = surrogate.predict(Xtest, std=True)
 
-# compute expected improvement
-strategy   = EIStrategy(lb,ub)
-args       = [GP]
-ei = []
+
+#compute aquisition function
+args    = [surrogate]
+acquisition = []
 for x in Xtest:
-  ei.append(strategy.EI_objective(x,args))
+  acquisition.append(strategy.objective(x,args))
 
-# compute probability improvement
-strategy   = POIStrategy(lb,ub)
-args       = [GP]
-poi = []
-for x in Xtest:
-  poi.append(strategy.POI_objective(x,args))
-
-
-# plot expected improvement
-#plt.plot(Xtest.flatten(),ei,color='r',label='expected improvement')
-
-# plot probability of improvement
-plt.plot(Xtest.flatten(),poi,color='red',label='probabilty of improvement')
+# plot acquisition function
+#plt.plot(Xtest.flatten(),poi,color='red',label='probabilty of improvement')
+plt.plot(Xtest.flatten(),acquisition,color='red',label='acquisition function')
 
 # plot Next Evaluation
 plt.scatter(X[II+1],fX[II+1],color='red',s = 150,marker=(5,1), label='Next Evaluation')
 
-# plot risk-neutral GP
-plt.plot(Xtest.flatten(),ftest,linewidth=3, color='orange',label='Risk-Neutral')
+# plot GP
+plt.plot(Xtest.flatten(),ftest,linewidth=3, color='orange',label='Surrogate')
 # plot the 95% confidence interval
 plt.fill_between(Xtest.flatten(),ftest-1.96*std,ftest+1.96*std,alpha=0.3)
 
@@ -102,7 +97,7 @@ ftrue = np.array([f(x) for x in Xtest])
 plt.plot(Xtest.flatten(),ftrue,linewidth=3, color='b',label='function')
 
 # plot data
-plt.scatter(problem.X[:II].flatten(),problem.fX[:II],color='k', label='data')
-plt.title('Bayesian Optimization: Risk-Neutral Probability of Improvement')
+plt.scatter(X[:II].flatten(),fX[:II],color='k', label='data')
+plt.title('Bayesian Optimization Under Uncertainty')
 plt.legend()
 plt.show()

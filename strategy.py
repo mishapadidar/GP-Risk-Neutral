@@ -8,7 +8,7 @@ from scipy.optimize import minimize
 
 
 # choose a random point
-class randomStrategy():
+class RandomStrategy():
 
   def __init__(self,lb,ub):
     self.lb = lb;
@@ -23,13 +23,13 @@ class EIStrategy():
   def __init__(self,lb,ub):
     self.lb = lb;
     self.ub = ub;
-    self.num_multistart = 5;
+    self.num_multistart = 10;
 
   # equation (35) Jones 2001
   # xx: evaluation point as a 1D-array
   # This function cannot evaluate a vector of points
   # args: [surrogate]
-  def EI_objective(self,xx,args):
+  def objective(self,xx,args):
     # unpack surrogate from optimizer
     surrogate = args[0]
     # optimizer inputs point in wrong shape
@@ -53,8 +53,8 @@ class EIStrategy():
     return EI
 
   # negative expected improvement
-  def minus_EI_objective(self,xx,args):
-    return -self.EI_objective(xx,args)
+  def negobjective(self,xx,args):
+    return -self.objective(xx,args)
 
   # optimize the expected improvement objective
   def generate_evals(self,surrogate):
@@ -69,7 +69,7 @@ class EIStrategy():
       args    = [surrogate]
       bounds  = list(zip(self.lb,self.ub))
       # MAXIMIZE expected improvement
-      sol = minimize(self.minus_EI_objective, x0, args =args, method='SLSQP',bounds =bounds)
+      sol = minimize(self.negobjective, x0, args =args, method='SLSQP',bounds =bounds)
       candidates[i] = sol.x
       vals[i]       = sol.fun
     iopt    = np.argmin(vals);
@@ -85,14 +85,14 @@ class POIStrategy():
   def __init__(self,lb,ub):
     self.lb = lb;
     self.ub = ub;
-    self.num_multistart = 5;
-    self.alpha = 0.01 # Percent improvement desired
+    self.num_multistart = 10;
+    self.alpha = 0.001 # Percent improvement desired
 
   # equation (35) Jones 2001
   # xx: evaluation point as a 1D-array
   # This function cannot evaluate a vector of points
   # args: [surrogate]
-  def POI_objective(self,xx,args):
+  def objective(self,xx,args):
     # unpack surrogate from optimizer
     surrogate = args[0]
     # optimizer inputs point in wrong shape
@@ -113,8 +113,8 @@ class POIStrategy():
     return POI
 
   # negative probability of improvement
-  def minus_POI_objective(self,xx,args):
-    return -self.POI_objective(xx,args)
+  def negobjective(self,xx,args):
+    return -self.objective(xx,args)
 
   # maximize the probability of improvement objective
   # using multistart
@@ -130,7 +130,7 @@ class POIStrategy():
       args    = [surrogate]
       bounds  = list(zip(self.lb,self.ub))
       # MAXIMIZE probability of improvement
-      sol = minimize(self.minus_POI_objective, x0, args =args, method='SLSQP',bounds =bounds)
+      sol = minimize(self.negobjective, x0, args =args, method='SLSQP',bounds =bounds)
       candidates[i] = sol.x
       vals[i]       = sol.fun
     iopt    = np.argmin(vals);

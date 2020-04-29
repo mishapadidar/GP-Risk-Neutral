@@ -42,8 +42,9 @@ class RBFKernel(Kernel):
     """
     def __init__(self):
         super().__init__()
-        self.hyperparams = np.array([1e-1,1e-1])
-        self.bounds      = np.array([[1e-6,10],[1e-3,1.0]])
+        # important to have a large initial nugget for optimization
+        self.hyperparams = np.array([1e-1,1e-2]) 
+        self.bounds      = np.array([[1e-4,1],[1e-4,1.0]])
         self.num_hyperparams  = len(self.hyperparams)
 
 

@@ -3,14 +3,174 @@
 
 import numpy as np
 from sklearn.metrics.pairwise import rbf_kernel
-from sklearn.gaussian_process import GaussianProcessRegressor
-"""
-The sklearn GPRegressor uses the kernel
-k(x,y) = a*np.exp(-gamma*||x-y||^2)
+from kernel import RBFKernel
+from scipy.optimize import minimize
 
-a is the 'k1__constant_value' extracted below and 
-gamma is the 'k2__length_scale'
-"""
+
+class GaussianProcessRegressor():
+  
+  def __init__(self):
+    self.dim    = 0;    # input data dimension
+    self.X      = None; # data points
+    self.fX     = None; # function evals
+    self.N      = 0     # number of training points
+    self.L      = None; # cholesky factorization of rbf kernel matrix
+    self.num_multistart = 3; # for optimizing hyperparameters
+    self.kernel = RBFKernel(); # kernel function
+
+
+  # "fit" a GP to the data
+  def fit(self, X,fX):
+    # update data
+    self.X  = X;
+    self.fX = fX;
+    self.dim = X.shape[1]
+    self.N  = len(fX)
+
+    # optimize hyperparameters
+    #self.kernel.hyperparams[0] = 1.0/len(self.fX)
+    self.train()
+
+    # kernel matrix
+    K = self.kernel.eval(X)
+
+    # cholesky factorization
+    self.L = np.linalg.cholesky(K)
+
+
+  def predict(self, xx, std = False):
+    # ensure GP is trained
+    #self.fit(self.X,self.fX);
+
+    # compute kernel at new points
+    K_Xx = self.kernel.eval(self.X,xx)
+    K_xx = self.kernel.eval(xx)
+
+    # compute the predictive mean and covariance
+    m = K_Xx.T @ np.linalg.solve(self.L.T,np.linalg.solve(self.L,self.fX));
+    K = K_xx - K_Xx.T @ np.linalg.solve(self.L.T,np.linalg.solve(self.L, K_Xx))
+
+    if std is False:
+      # return the mean
+      return m
+    else:
+      # return mean and standard error
+      return m, np.sqrt(np.diag(K))
+
+
+
+  def update(self, xx,yy):
+    """  update gp with new points
+    """
+    self.X = np.vstack((self.X,xx))
+    self.fX = np.concatenate((self.fX,[yy]))
+    self.fit(self.X,self.fX)
+
+
+  def likelihood(self, hyperparams):
+    """ log marginal likelihood function;
+    hyperparams: vector of hyperparametes for kernel
+    """
+
+    # kernel matrix   
+    K = self.kernel.eval(self.X, None, hyperparams)
+    # cholesky factorization
+    L = np.linalg.cholesky(K)
+    _, logdet  = np.linalg.slogdet(L) # more stable than det
+    complexity = 2*logdet
+    fit = self.fX @ np.linalg.solve(L.T,np.linalg.solve(L,self.fX));
+    #fit = self.fX @ np.linalg.inv(K) @ self.fX
+    return -0.5*(complexity+fit) 
+
+
+  def gradlikelihood(self,hyperparams):
+    """gradient of likelihood wrt hyperparams 
+    """
+        # kernel matrix   
+    K = self.kernel.eval(self.X, None, hyperparams)
+    # cholesky factorization
+    L = np.linalg.cholesky(K)
+
+    # kernel derivative
+    Dk = self.kernel.deriv(self.X, None,hyperparams)
+
+    # gradient vector storage
+    grad = np.zeros(self.kernel.num_hyperparams)
+
+    # derivative for each hyper
+    for i in range(self.kernel.num_hyperparams):
+      # kernel deriv for hyper
+      Dk_i = Dk[i]
+      # M = K^{-1}*dK/dh
+      M = np.linalg.solve(L.T,np.linalg.solve(L,Dk_i));
+      # trace term
+      Tr = 0.5*np.trace(M)
+      # quadratic term
+      Q  = 0.5*self.fX @ Dk_i @ M @ self.fX
+      grad[i] = Tr + Q
+      
+    return grad
+  
+
+  def neglikelihood(self,hyperparams):
+    # NEGATIVE log marginal likelihood function;
+    return -self.likelihood(hyperparams)
+
+
+  def gradneglikelihood(self,hyperparams):
+    # gradient of negative likelihood
+    return -self.gradlikelihood(hyperparams)
+
+
+
+  def train(self):
+    """ optimize hyperparameters via 
+    maximizing log marginal likelihood
+    """
+    #print("Tuning Hyperparams")
+
+    # current hyperparams
+    best = self.kernel.hyperparams
+    val  = self.likelihood(best)
+
+    # hyperparam bounds
+    bounds  = self.kernel.bounds    
+
+    # use multistart
+    II = 0
+    while II < self.num_multistart:
+      # initial guess
+      if II == 0:
+        x0 = best
+      else:
+        #x0 = np.random.beta(1,6,self.kernel.num_hyperparams) # support on [0,1]
+        #x0 = bounds[:,0] + (bounds[:,1]-bounds[:,0])*x0
+        x0      = np.random.uniform(bounds[:,0],bounds[:,1],self.kernel.num_hyperparams)
+      
+      # MAXIMIZE likelihood
+      # TNC == Newton-Conjugate Gradients
+      sol = minimize(self.neglikelihood, x0, method='TNC',jac = self.gradneglikelihood, bounds =bounds) 
+      #print(sol.x, sol.fun)  
+      # replace best hypers
+      if sol.fun < val:
+        best = sol.x
+        val  = sol.fun;
+      II +=1
+      #print(sol)
+      #print(sol.x)
+      #print(sol.fun)
+      #print('')
+
+    # save optimized hypers
+    self.kernel.hyperparams = best;
+    #print('')
+    print(best)
+    #print('done')
+
+
+
+
+
 
 class GPRiskNeutral():
   
@@ -19,40 +179,15 @@ class GPRiskNeutral():
     self.dim   = len(Sigma[0])  # input data dimension
     self.X     = None; # data points
     self.fX    = None; # function evals
-    self.gp    = None; # sklearn gp
-    self.gamma1 = 1.0; # hyperparam: coefficient
-    self.gamma2 = 1.0; # hyperparam: length scale
-    self.L      = None; # cholesky factorization of rbf kernel matrix
+    self.GP    = GaussianProcessRegressor(); # gaussian process
     
-
-  # def fit(self,X,fX):
-  #   # fit a sklearn GP to the data
-  #   gp       = GaussianProcessRegressor().fit(X,fX)
-  #   self.X   = X;
-  #   self.fX  = fX;
-  #   self.gp  = gp;
-
-  #   # save the trained hyperparameters 
-  #   params        = self.gp.kernel_.get_params()
-  #   self.gamma1   = params['k1__constant_value'] # rbf coefficient
-  #   self.gamma2   = params['k2__length_scale']  # rbf length scale
 
   # "fit" a GP to the data
   def fit(self, X,fX):
     # update data
     self.X  = X;
     self.fX = fX;
-
-    # manually optimize hyperparams
-    self.gamma1 = 1.0;
-    self.gamma2 = len(self.fX)/self.dim**2 # proxy for choosing hyperparameter
-    # nugget
-    nugget = 1e-8*np.eye(len(self.fX))
-    # kernel matrix
-    Phi_XX = self.gamma1*rbf_kernel(self.X,self.X,self.gamma2) + nugget
-    # cholesky factorization
-    self.L = np.linalg.cholesky(Phi_XX)
-
+    self.GP.fit(X,fX)
 
   """
   Predict by:
@@ -68,13 +203,10 @@ class GPRiskNeutral():
 
   def predict(self, xx, std = False):
     # ensure GP is trained
-    self.fit(self.X,self.fX);
-
-    # extract cholesky 
-    #L       = self.gp.L_;
+    #self.fit(self.X,self.fX);
     
     # compute the convolution kernels
-    A          = 1/(2*self.gamma2)*np.eye(self.dim);
+    A          = (0.5*self.GP.kernel.hyperparams[0]**2)*np.eye(self.dim);
     ASigma     = A + self.Sigma
     A2Sigma    = A + 2*self.Sigma
     detA       = np.linalg.det(A);        # det(A)
@@ -90,24 +222,29 @@ class GPRiskNeutral():
     g2 = np.vectorize(conv2)
     # create the kernel matrix
     Psi_Xx    = np.fromfunction(g1,(len(self.X),len(xx)),dtype=int);
-    Psihat_xx = np.fromfunction(g2,(len(xx),len(xx)),dtype=int);
+    Psihat_xx = np.fromfunction(g2,(len(xx),len(xx)),dtype=int) 
     # multiply by constant
-    Psi_Xx     = self.gamma1*Psi_Xx*np.sqrt(detA/detASigma) # single convolutional kernel
-    Psihat_xx  = self.gamma1*Psihat_xx*np.sqrt(detA/detA2Sigma) # double convolutional kernel
+    Psi_Xx     = Psi_Xx*np.sqrt(detA/detASigma) # single convolutional kernel
+    Psihat_xx  = Psihat_xx*np.sqrt(detA/detA2Sigma) + self.GP.kernel.hyperparams[1]**2*np.eye(len(xx)); # double convolutional kernel
 
     # compute the predictive mean and covariance
-    m = Psi_Xx.T @ np.linalg.solve(self.L.T,np.linalg.solve(self.L,self.fX));
-    K = Psihat_xx - Psi_Xx.T @ np.linalg.solve(self.L.T,np.linalg.solve(self.L, Psi_Xx))
+    m = Psi_Xx.T @ np.linalg.solve(self.GP.L.T,np.linalg.solve(self.GP.L,self.fX));
+    K = Psihat_xx - Psi_Xx.T @ np.linalg.solve(self.GP.L.T,np.linalg.solve(self.GP.L, Psi_Xx))
 
     if std is False:
       # return the mean
       return m
     else:
       # return mean and standard error
-      return m, np.sqrt(np.diag(K))
+      v = np.sqrt(np.diag(K))
+      return m, v
 
   # update gp with new points
   def update(self, xx,yy):
-    self.X = np.vstack((self.X,xx))
+    self.X  = np.vstack((self.X,xx))
     self.fX = np.concatenate((self.fX,[yy]))
-    self.fit(self.X,self.fX)
+    self.GP.update(xx,yy)
+
+
+
+
