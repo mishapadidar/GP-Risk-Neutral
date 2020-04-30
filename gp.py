@@ -1,5 +1,5 @@
 import numpy as np
-from kernel import RBFKernel
+from kernel import SEKernel
 from scipy.optimize import minimize
 
 
@@ -16,7 +16,7 @@ class GaussianProcessRegressor():
     self.N      = 0     # number of training points
     self.L      = None; # cholesky factorization of rbf kernel matrix
     self.num_multistart = 7; # for optimizing hyperparameters
-    self.kernel = RBFKernel(); # kernel function
+    self.kernel = SEKernel(); # kernel function
 
 
   # "fit" a GP to the data

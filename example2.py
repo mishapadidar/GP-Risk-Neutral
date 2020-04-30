@@ -16,16 +16,18 @@ probability of improvement)
 """
 import numpy as np
 from bayesopt import BayesianOptimization
-#from gp import GaussianProcessRegressor
-from surrogate import GaussianProcessRegressor
-from surrogate import GPRiskNeutral
+
+from riskkernel import Normal_SEKernel
+from surrogate import GaussianProcessRiskNeutral
+
 from strategy import RandomStrategy, EIStrategy, POIStrategy
 from experimental_design import SymmetricLatinHypercube as SLHC
 import matplotlib.pyplot as plt
 
 
 # number of points used in plots
-II = 40
+# use II < max_evals
+II = 55
 
 #=============================================================
 # Run Bayesian Optimization
@@ -36,7 +38,7 @@ f = lambda x: -np.exp(-100*(x-0.8)**2)+np.exp(-2*(x-1)**2)+np.exp(-2*(x+1.5)**2)
 #f = lambda x: np.exp(-(x-0.5)**2)*np.sin(30*x)
 dim        = 1
 max_evals  = 60
-Sigma      = 0.01*np.eye(dim)
+Sigma      = 0.001*np.eye(dim)
 lb         = -1.5*np.ones(dim)
 ub         = 1.5*np.ones(dim)
 num_pts    = 12*dim + 1 # initial evaluations
@@ -44,9 +46,8 @@ exp_design = SLHC(dim, num_pts)
 strategy   = POIStrategy(lb,ub)
 #strategy   = RandomStrategy(lb,ub)
 #strategy    = EIStrategy(lb,ub)
-surrogate  = GPRiskNeutral(Sigma)
-#surrogate  = GaussianProcessRegressor()
-surrogate.num_multistart =2 # for training hyperparams
+kernel     = Normal_SEKernel(Sigma)
+surrogate  = GaussianProcessRiskNeutral(kernel)
 
 # initialize the problem
 problem    = BayesianOptimization(f,dim, max_evals, exp_design, strategy, surrogate,lb, ub)
@@ -66,9 +67,6 @@ Xtest = np.linspace(lb,ub,Ntest).reshape((Ntest,dim))
 
 # fit the surrogate to the first II points
 surrogate.fit(X[:II],fX[:II])
-#print('')
-#print(surrogate.GP.kernel.hyperparams)
-
 
 # predict the risk neutral and standard error
 ftest, std = surrogate.predict(Xtest, std=True)
@@ -81,7 +79,6 @@ for x in Xtest:
   acquisition.append(strategy.objective(x,args))
 
 # plot acquisition function
-#plt.plot(Xtest.flatten(),poi,color='red',label='probabilty of improvement')
 plt.plot(Xtest.flatten(),acquisition,color='red',label='acquisition function')
 
 # plot Next Evaluation

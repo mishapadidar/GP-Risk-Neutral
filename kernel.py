@@ -34,7 +34,7 @@ class Kernel(ABC):
 
 
 
-class RBFKernel(Kernel):
+class SEKernel(Kernel):
     """Thin-plate spline RBF kernel.
     This is a basic class Squared Exponential RBF kernel:
     :math:`\\varphi(r) = \\exp(\\-theta_2^2||x-x'||^2) + \\theta_3^2\\delta_{ii'}` which is
