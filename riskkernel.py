@@ -24,7 +24,12 @@ class Kernel(ABC):
         pass
 
     @abstractmethod
-    def mollifiedx1(self, dists):  # pragma: no cover
+    def get_hyperparameters(self):
+      """ Return the hyperparameters as a list"""
+      pass
+
+    @abstractmethod
+    def mollifiedx1(self, X,Y):  # pragma: no cover
         """Once mollified kernel
         :param dists: Array of size n x n with pairwise distances
         :type dists: numpy.ndarray
@@ -34,7 +39,7 @@ class Kernel(ABC):
         pass
 
     @abstractmethod
-    def mollifiedx2(self, dists):  # pragma: no cover
+    def mollifiedx2(self, X):  # pragma: no cover
         """Twice mollified kernel
         :param dists: Array of size n x n with pairwise distances
         :type dists: numpy.ndarray
@@ -54,9 +59,10 @@ class Normal_SEKernel(Kernel):
     def __init__(self, Sigma):
       super().__init__()
       # squared exponential kernel for GP
-      self.GPkernel = ConstantKernel(1, (1e-3, 1e3)) * RBF(1, (0.1, 100)) + \
-                        WhiteKernel(1e-3, (1e-6, 1e-2))
+      self.GPkernel = ConstantKernel(1, (1e-3, 1e3)) * RBF(1, (1e-4, 100)) + \
+                        WhiteKernel(1e-3, (1e-6, 1e-1))
       self.Sigma = Sigma
+      self.dim   = Sigma.shape[1]
 
 
     def updatekernel(self,kernel):
@@ -68,50 +74,50 @@ class Normal_SEKernel(Kernel):
     def get_hyperparameters(self):
       """ get hyperparameters from GPkernel
       """
-
-      theta1 = self.GPkernel.get_params()['k1__k1__constant_value']
-      theta2 = self.GPkernel.get_params()['k1__k2__length_scale']
-      theta3 = self.GPkernel.get_params()['k2__noise_level']
-      return np.array([theta1,theta2,theta3])
+      theta0 = self.GPkernel.get_params()['k1__k1__constant_value']
+      theta1 = self.GPkernel.get_params()['k1__k2__length_scale']
+      theta2 = self.GPkernel.get_params()['k2__noise_level']
+      return np.array([theta0,theta1,theta2])
 
 
     def mollifiedx1(self, X,Y):
       """ Once mollified kernel
       """
+      # get optimized hyperparameters
       theta = self.get_hyperparameters()
-      dim = X.shape[1]
-      # compute the convolution kernels
-      A          = (0.5*theta[1]**2)*np.eye(dim);
+
+      # A + Sigma
+      A          = (0.5*theta[1]**2)*np.eye(self.dim);
       ASigma     = A + self.Sigma
-      detA       = np.linalg.det(A);        # det(A)
-      detASigma  = np.linalg.det(ASigma);   # det(A + Sigma)
       invASigma  = np.linalg.inv(ASigma);    # inv(A + Sigma)
-      # convolution gaussian kernel function
-      conv = lambda i,j: np.exp(-0.5*(X[i]-Y[j])@invASigma@(X[i]-Y[j]));
-      # vectorize the function
-      g    = np.vectorize(conv)
-      # create the kernel matrix
+      # constant
+      c    = theta[0]*np.sqrt(np.linalg.det(A)/np.linalg.det(A+self.Sigma))
+      # kernel
+      kernel = lambda i,j: c*np.exp(-0.5*(X[i]-Y[j])@invASigma@(X[i]-Y[j]));
+      # kernel
+      g    = np.vectorize(kernel)
+      # make kernel matrix
       K    = np.fromfunction(g,(len(X),len(Y)),dtype=int);
-      K    = theta[0]*K*np.sqrt(detA/detASigma) # single convolutional kernel
       return K
 
 
     def mollifiedx2(self, X):
       """ Twice mollified kernel
       """
+      # get optimized hyperparameters
       theta = self.get_hyperparameters()
-      dim = X.shape[1]
 
-
-      A          = (0.5*theta[1]**2)*np.eye(dim);
-      detA       = np.linalg.det(A)
+      # A + 2Sigma
+      A          = (0.5*theta[1]**2)*np.eye(self.dim);
       A2Sigma    = A + 2*self.Sigma
-      detA2Sigma = np.linalg.det(A2Sigma);  # det(A + 2*Sigma)
       invA2Sigma = np.linalg.inv(A2Sigma);   # inv(A + 2Sigma)
-      conv = lambda i,j: np.exp(-0.5*(X[i]-X[j])@invA2Sigma@(X[i]-X[j]));
-      g    = np.vectorize(conv)
-      K    = np.fromfunction(g,(len(X),len(X)),dtype=int) 
-      K    = K*np.sqrt(detA/detA2Sigma) + theta[2]**2*np.eye(len(X)); 
+      # constant
+      c    = theta[0]*np.sqrt(np.linalg.det(A)/np.linalg.det(A+2*self.Sigma))
+      # kernel
+      kernel = lambda i,j: c*np.exp(-0.5*(X[i]-X[j])@invA2Sigma@(X[i]-X[j]));
+      g    = np.vectorize(kernel)
+      # make kernel matrix
+      K    = np.fromfunction(g,(len(X),len(X)),dtype=int) + (theta[2])*np.eye(len(X))
       return K
 
 

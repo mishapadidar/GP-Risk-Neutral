@@ -88,12 +88,14 @@ class GaussianProcessRiskNeutral():
     # ensure GP is trained
     #self.fit(self.X,self.fX);
 
-    Psi_Xx    = self.RiskKernel.mollifiedx1(self.X, xx)
-    Psihat_xx = self.RiskKernel.mollifiedx2(xx)
+    # once mollified kernel matrix
+    Psi    = self.RiskKernel.mollifiedx1(self.X, xx)
+    # twice mollified kernel matrix
+    Psihat = self.RiskKernel.mollifiedx2(xx)
     
     # compute the predictive mean and covariance
-    m = Psi_Xx.T @ np.linalg.solve(self.GP.L_.T,np.linalg.solve(self.GP.L_,self.fX));
-    K = Psihat_xx - Psi_Xx.T @ np.linalg.solve(self.GP.L_.T,np.linalg.solve(self.GP.L_, Psi_Xx))
+    m = Psi.T @ np.linalg.solve(self.GP.L_.T,np.linalg.solve(self.GP.L_,self.fX));
+    K = Psihat - Psi.T @ np.linalg.solve(self.GP.L_.T,np.linalg.solve(self.GP.L_, Psi))
 
     if std is False:
       # return the mean

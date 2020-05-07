@@ -41,10 +41,10 @@ max_evals  = 60
 Sigma      = 0.001*np.eye(dim)
 lb         = -1.5*np.ones(dim)
 ub         = 1.5*np.ones(dim)
-num_pts    = 12*dim + 1 # initial evaluations
+num_pts    = 10*dim + 1 # initial evaluations
 exp_design = SLHC(dim, num_pts)
-strategy   = POIStrategy(lb,ub)
-#strategy   = RandomStrategy(lb,ub)
+#strategy   = POIStrategy(lb,ub)
+strategy   = RandomStrategy(lb,ub)
 #strategy    = EIStrategy(lb,ub)
 kernel     = Normal_SEKernel(Sigma)
 surrogate  = GaussianProcessRiskNeutral(kernel)
@@ -73,19 +73,22 @@ ftest, std = surrogate.predict(Xtest, std=True)
 
 
 #compute aquisition function
-args    = [surrogate]
-acquisition = []
-for x in Xtest:
-  acquisition.append(strategy.objective(x,args))
+# args    = [surrogate]
+# acquisition = []
+# for x in Xtest:
+#   acquisition.append(strategy.objective(x,args))
 
-# plot acquisition function
-plt.plot(Xtest.flatten(),acquisition,color='red',label='acquisition function')
+# # plot acquisition function
+# plt.plot(Xtest.flatten(),acquisition,color='red',label='acquisition function')
 
 # plot Next Evaluation
 plt.scatter(X[II+1],fX[II+1],color='red',s = 150,marker=(5,1), label='Next Evaluation')
 
-# plot GP
-plt.plot(Xtest.flatten(),ftest,linewidth=3, color='orange',label='Surrogate')
+# plot gp
+plt.plot(Xtest.flatten(),surrogate.GP.predict(Xtest),color='green',label='GP')
+
+# plot surrogate
+plt.plot(Xtest.flatten(),ftest,linewidth=3, color='orange',label='GPRN')
 # plot the 95% confidence interval
 plt.fill_between(Xtest.flatten(),ftest-1.96*std,ftest+1.96*std,alpha=0.3)
 
