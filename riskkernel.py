@@ -59,7 +59,7 @@ class Normal_SEKernel(Kernel):
     def __init__(self, Sigma):
       super().__init__()
       # squared exponential kernel for GP
-      self.GPkernel = ConstantKernel(1, (1e-3, 1e3)) * RBF(1, (1e-4, 100)) + \
+      self.GPkernel = ConstantKernel(1, (1e-3, 1e3)) * RBF(1, (1e-3, 100)) + \
                         WhiteKernel(1e-3, (1e-6, 1e-1))
       self.Sigma = Sigma
       self.dim   = Sigma.shape[1]

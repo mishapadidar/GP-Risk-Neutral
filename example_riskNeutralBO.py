@@ -19,6 +19,7 @@ from bayesopt import BayesianOptimization
 
 from riskkernel import Normal_SEKernel
 from surrogate import GaussianProcessRiskNeutral
+from sklearn.gaussian_process.kernels import WhiteKernel, ConstantKernel, RBF
 
 from strategy import RandomStrategy, EIStrategy, POIStrategy
 from experimental_design import SymmetricLatinHypercube as SLHC
@@ -27,7 +28,7 @@ import matplotlib.pyplot as plt
 
 # number of points used in plots
 # use II < max_evals
-II = 55
+II = 35
 
 #=============================================================
 # Run Bayesian Optimization
@@ -41,12 +42,18 @@ max_evals  = 60
 Sigma      = 0.01*np.eye(dim)
 lb         = -1.5*np.ones(dim)
 ub         = 1.5*np.ones(dim)
-num_pts    = 10*dim + 1 # initial evaluations
+num_pts    = 25*dim + 1 # initial evaluations
+
 exp_design = SLHC(dim, num_pts)
 #strategy   = POIStrategy(lb,ub)
-strategy   = RandomStrategy(lb,ub)
-#strategy    = EIStrategy(lb,ub)
+#strategy   = RandomStrategy(lb,ub)
+strategy    = EIStrategy(lb,ub)
 kernel     = Normal_SEKernel(Sigma)
+
+# customizing bounds for the kernel hyperparams
+# the following line can be ommitted. 
+kernel.GPkernel = ConstantKernel(1, (1e-3, 1e3)) * RBF(1, (1e-2, 2)) + \
+                  WhiteKernel(1e-3, (1e-6, 1e-1))
 surrogate  = GaussianProcessRiskNeutral(kernel)
 
 # initialize the problem
@@ -73,13 +80,13 @@ ftest, std = surrogate.predict(Xtest, std=True)
 
 
 #compute aquisition function
-# args    = [surrogate]
-# acquisition = []
-# for x in Xtest:
-#   acquisition.append(strategy.objective(x,args))
+args    = [surrogate]
+acquisition = []
+for x in Xtest:
+  acquisition.append(strategy.objective(x,args))
 
-# # plot acquisition function
-# plt.plot(Xtest.flatten(),acquisition,color='red',label='acquisition function')
+# plot acquisition function
+plt.plot(Xtest.flatten(),acquisition,color='red',label='acquisition function')
 
 # plot Next Evaluation
 plt.scatter(X[II+1],fX[II+1],color='red',s = 150,marker=(5,1), label='Next Evaluation')
