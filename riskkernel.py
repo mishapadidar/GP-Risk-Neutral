@@ -80,20 +80,20 @@ class Normal_SEKernel(Kernel):
       return np.array([theta0,theta1,theta2])
 
 
-    def mollifiedx1(self, X,Y):
+    def mollifiedx1(self, X,Y): 
       """ Once mollified kernel
       """
       # get optimized hyperparameters
       theta = self.get_hyperparameters()
 
-      # A + Sigma
-      A          = (0.5*theta[1]**2)*np.eye(self.dim);
-      ASigma     = A + self.Sigma
-      invASigma  = np.linalg.inv(ASigma);    # inv(A + Sigma)
+      # A + 2Sigma
+      A     = (theta[1]**2)*np.eye(self.dim);
+      B     = A + self.Sigma
+      Binv  = np.linalg.inv(B);    # inv(A + Sigma)
       # constant
-      c    = theta[0]*np.sqrt(np.linalg.det(A)/np.linalg.det(A+self.Sigma))
+      c    = theta[0]*np.sqrt(np.linalg.det(A)/np.linalg.det(B))
       # kernel
-      kernel = lambda i,j: c*np.exp(-0.5*(X[i]-Y[j])@invASigma@(X[i]-Y[j]));
+      kernel = lambda i,j: c*np.exp(-0.5*(X[i]-Y[j])@Binv@(X[i]-Y[j]));
       # kernel
       g    = np.vectorize(kernel)
       # make kernel matrix
@@ -108,13 +108,13 @@ class Normal_SEKernel(Kernel):
       theta = self.get_hyperparameters()
 
       # A + 2Sigma
-      A          = (0.5*theta[1]**2)*np.eye(self.dim);
-      A2Sigma    = A + 2*self.Sigma
-      invA2Sigma = np.linalg.inv(A2Sigma);   # inv(A + 2Sigma)
+      A    = (theta[1]**2)*np.eye(self.dim);
+      B    = A + 2*self.Sigma
+      Binv = np.linalg.inv(B);   # inv(A + 2Sigma)
       # constant
-      c    = theta[0]*np.sqrt(np.linalg.det(A)/np.linalg.det(A+2*self.Sigma))
+      c    = theta[0]*np.sqrt(np.linalg.det(A)/np.linalg.det(B))
       # kernel
-      kernel = lambda i,j: c*np.exp(-0.5*(X[i]-X[j])@invA2Sigma@(X[i]-X[j]));
+      kernel = lambda i,j: c*np.exp(-0.5*(X[i]-X[j])@Binv@(X[i]-X[j]));
       g    = np.vectorize(kernel)
       # make kernel matrix
       K    = np.fromfunction(g,(len(X),len(X)),dtype=int) + (theta[2])*np.eye(len(X))
