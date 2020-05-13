@@ -7,8 +7,9 @@ from scipy.stats import norm
 from scipy.optimize import minimize
 
 
-# choose a random point
+
 class RandomStrategy():
+# choose a random point
 
   def __init__(self,lb,ub):
     self.lb = lb;
@@ -17,8 +18,10 @@ class RandomStrategy():
   def generate_evals(self,surrogate):
     return np.random.uniform(self.lb,self.ub)
 
-# expected improvement
+
+
 class EIStrategy():
+# expected improvement
 
   def __init__(self,lb,ub):
     self.lb = lb;
@@ -78,8 +81,7 @@ class EIStrategy():
 
 
 
-# probability of improvement
-# default 1 percent improvement
+
 class POIStrategy():
 
   def __init__(self,lb,ub):
@@ -137,18 +139,61 @@ class POIStrategy():
     next_pt = np.array([candidates[iopt]])
     return next_pt
 
-  # maximize probaility of improvement by randomly sampling it
-  # def generate_evals(self,surrogate):
-  #   # candidate points
-  #   candidates = np.random.uniform(self.lb,self.ub,(20,surrogate.dim))
-  #   vals       = np.zeros(20);
-  #   for i in range(self.num_multistart):
-  #     args = [surrogate]
-  #     # evaluate the points
-  #     vals[i] = self.POI_objective(candidates[i],args)
-  #   iopt    = np.argmax(vals);
-  #   next_pt = np.array([candidates[iopt]])
-  #   return next_pt
 
 
-    
+
+
+class SRBFStrategy():
+  """
+  Global Metric SRBF strategy from
+
+  Rommel G. Regis, Christine A. Shoemaker, (2007) A Stochastic 
+  Radial Basis Function Method for the Global Optimization of
+  Expensive Functions. INFORMS Journal on Computing 19(4):497-509
+
+  cycle through weights to determine local vs global search.
+
+  Return the next evaluation as a 2D array.
+  """
+
+  def __init__(self,lb,ub,num_candidates=10):
+    self.lb = lb;
+    self.ub = ub;
+    self.num_candidates = num_candidates
+    # for weights
+    self.cycle_length = 5
+    self.weights      = np.linspace(0,1,self.cycle_length)
+    self.weight_index = 0 # initialize at 0
+
+
+  def generate_evals(self,surrogate):
+    # generate candidates
+    dim  = len(self.lb)
+    C    = np.random.uniform(self.lb,self.ub, (self.num_candidates, dim))
+    # estimate function value
+    fC   = surrogate.predict(C)
+    df   = max(fC)-min(fC)
+    # evaluate minimum distance from previous points
+    D    = np.array([min(c-surrogate.X) for c in C]).flatten()
+    # largest minus smallest distance
+    dD   = max(D)-min(D)
+    # compute score for response surface criterion
+    if df == 0.0:
+      VR = np.ones(len(C))
+    else:
+      VR = (fC - min(fC))/df
+    # compute score for distance criterion
+    if dD == 0.0:
+      VD = np.ones(len(C))
+    else:
+      VD = (max(D)-D)/dD
+    # compute weighted score
+    w     = self.weights[self.weight_index]
+    score = w*VR + (1-w)*VD
+    # choose minimizer
+    iopt = np.argmin(score)
+    xopt = C[iopt]
+    # update weight for next time
+    self.wi = (self.weight_index + 1)%self.cycle_length
+
+    return np.array([xopt])
