@@ -72,18 +72,15 @@ class BayesianOptimization():
       # update surrogate
       self.surrogate.update(xi,fi)
 
-    # extract points from surrogate
-    X  = self.surrogate.X
-    fX = self.surrogate.fX
-
-    # return best Risk-Neutral eval so far
-    iopt = np.argmin(fX)
-    fopt = fX[iopt]
-    xopt = X[iopt]
-
     # save the evaluation history
-    self.X     = X
-    self.fX    = fX
+    self.X  = self.surrogate.X
+    self.fX = self.surrogate.fX
+
+    # return surrogate's (not function's) best evaluation
+    f_surr = self.surrogate.predict(self.X)
+    iopt = np.argmin(f_surr)
+    fopt = f_surr[iopt]
+    xopt = self.X[iopt]
 
     return xopt,fopt
 
