@@ -10,8 +10,7 @@ import numpy as np
 from bayesopt import BayesianOptimization
 
 from sklearn.gaussian_process.kernels import WhiteKernel, ConstantKernel, RBF
-from riskkernel import Normal_SEKernel
-from surrogate import GaussianProcessRegressor
+from surrogate import MeanVariance
 
 from MonteCarlo_strategies import MonteCarlo_MV
 from strategy import SRBFStrategy, SRBFStrategy_MC_MV
@@ -33,10 +32,10 @@ lb         = -1.5*np.ones(dim)
 ub         = 1.5*np.ones(dim)
 num_pts    = 15*dim + 1 # initial evaluations
 exp_design = SLHC(dim, num_pts)
-strategy   = SRBFStrategy_MC_MV(lb,ub)
+strategy   = SRBFStrategy(lb,ub)
 kernel = ConstantKernel(1, (1e-3, 1e3)) * RBF(1, (0.1, 100)) + \
     WhiteKernel(1e-3, (1e-6, 1e-2))
-surrogate = GaussianProcessRegressor(kernel =kernel)
+surrogate = MeanVariance(kernel =kernel)
 
 # initialize the problem
 problem    = BayesianOptimization(f,dim, max_evals, exp_design, strategy, surrogate,lb, ub)

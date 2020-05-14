@@ -46,6 +46,6 @@ plt.plot(Xtest.flatten(),ev,linewidth=3, color='r',label='risk-neutral')
 plt.plot(Xtest.flatten(),ev+eta*va,linewidth=3, color='orange',label='risk-averse')
 
 # plot figure
-plt.title('Measures of Risk')
+plt.title('Measures of Risk Calculated with Monte Carlo')
 plt.legend()
 plt.show()
