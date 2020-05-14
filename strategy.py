@@ -256,3 +256,64 @@ class SRBFStrategy_MC_RN():
       self.wi = (self.weight_index + 1)%self.cycle_length
 
       return np.array([xopt])
+
+
+class SRBFStrategy_MC_MV():
+      """
+      Global Metric SRBF strategy from adapted to Monte-Carlo and the risk-neutral
+
+      Rommel G. Regis, Christine A. Shoemaker, (2007) A Stochastic
+      Radial Basis Function Method for the Global Optimization of
+      Expensive Functions. INFORMS Journal on Computing 19(4):497-509
+
+      cycle through weights to determine local vs global search.
+
+      Return the next evaluation as a 2D array.
+      """
+
+      def __init__(self,lb,ub,num_candidates=10, num_pts_MC=100, eta=1):
+        self.lb               = lb;
+        self.ub               = ub;
+        self.num_candidates   = num_candidates
+        self.num_pts_MC       = num_pts_MC
+        self.eta              = eta
+        # for weights
+        self.cycle_length     = 5
+        self.weights          = np.linspace(0,1,self.cycle_length)
+        self.weight_index     = 0 # initialize at 0
+
+
+      def generate_evals(self,surrogate):
+        # generate candidates
+        dim  = len(self.lb)
+        C    = np.random.uniform(self.lb,self.ub, (self.num_candidates, dim))
+        #add Monte-Carlo Strategy
+        
+        fC   = MonteCarlo_MV(surrogate, C, self.num_pts_MC, eta)
+        # estimate function value
+        #fC   = surrogate.predict(C)
+        df   = max(fC)-min(fC)
+        # evaluate minimum distance from previous points
+        D    = np.array([min(c-surrogate.X) for c in C]).flatten()
+        # largest minus smallest distance
+        dD   = max(D)-min(D)
+        # compute score for response surface criterion
+        if df == 0.0:
+          VR = np.ones(len(C))
+        else:
+          VR = (fC - min(fC))/df
+        # compute score for distance criterion
+        if dD == 0.0:
+          VD = np.ones(len(C))
+        else:
+          VD = (max(D)-D)/dD
+        # compute weighted score
+        w     = self.weights[self.weight_index]
+        score = w*VR + (1-w)*VD
+        # choose minimizer
+        iopt = np.argmin(score)
+        xopt = C[iopt]
+        # update weight for next time
+        self.wi = (self.weight_index + 1)%self.cycle_length
+
+        return np.array([xopt])
