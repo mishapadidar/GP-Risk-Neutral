@@ -4,6 +4,8 @@ Example file for Monte-Carlo 1D
 Monte-Carlo is here used to compute the objective function of the risk-neutral and mean-variance risk-averse function.
 Both are plotted with the original function
 """
+import sys
+sys.path.insert(1, '../')
 
 import numpy as np
 import matplotlib.pyplot as plt

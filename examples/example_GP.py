@@ -8,6 +8,8 @@ from sklearn.metrics.pairwise import rbf_kernel
 Verify the fit of a GP. 
 Plot the Likelihood function.
 """
+import sys
+sys.path.insert(1, '../')
 
 dim =1
 N = 100

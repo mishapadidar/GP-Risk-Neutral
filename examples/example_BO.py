@@ -14,6 +14,9 @@ Section. There are currently three options: randomStrategy,
 EIStrategy, POIStrategy (random sampling, expected improvement
 probability of improvement)
 """
+import sys
+sys.path.insert(1, '../')
+
 import numpy as np
 from bayesopt import BayesianOptimization
 

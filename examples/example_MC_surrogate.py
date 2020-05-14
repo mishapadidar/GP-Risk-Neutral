@@ -1,6 +1,8 @@
 """
 This example yields a Monte-Carlo calculation with f being the surrogate and should serve as a first step of understanding of how to include the Monte-Carlo in the full Bayesian optimization
 """
+import sys
+sys.path.insert(1, '../')
 import numpy as np
 from sklearn.gaussian_process.kernels import WhiteKernel, ConstantKernel, RBF
 from surrogate import GaussianProcessRegressor
