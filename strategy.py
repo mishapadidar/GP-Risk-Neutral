@@ -5,7 +5,7 @@
 import numpy as np
 from scipy.stats import norm
 from scipy.optimize import minimize
-from MonteCarlo_strategies import MonteCarlo_RN
+from MonteCarlo_strategies import MonteCarlo_RN, MonteCarlo_MV
 
 
 class RandomStrategy():
@@ -289,7 +289,7 @@ class SRBFStrategy_MC_MV():
         C    = np.random.uniform(self.lb,self.ub, (self.num_candidates, dim))
         #add Monte-Carlo Strategy
         
-        fC   = MonteCarlo_MV(surrogate, C, self.num_pts_MC, eta)
+        fC   = MonteCarlo_MV(surrogate, C, self.num_pts_MC, self.eta)
         # estimate function value
         #fC   = surrogate.predict(C)
         df   = max(fC)-min(fC)
