@@ -114,6 +114,66 @@ class GaussianProcessRiskNeutral():
 
 
 
+class MCRiskNeutral():
+  """Risk Neutral calculated from Monte Carlo on the GP
+  p: function handle for generating perturbations
+  p takes in an integer number of points and returns a 2D array
+  of vectors
+  num_points_MC: number of points used in Monte Carlo
+  """
+  
+  def __init__(self,kernel,p, num_points_MC = 1000):
+    self.dim    = 0;    # input data dimension
+    self.X      = None; # data points
+    self.fX     = None; # function evals
+    self.GP     = GPR(kernel=kernel) # gaussian process
+    self.p      = p     # generates perturbations U
+    self.num_points_MC = num_points_MC # number of points for monte carlo
+
+
+  # "fit" a GP to the data
+  def fit(self, X,fX):
+    # update data
+    self.X  = X;
+    self.fX = fX;
+    self.dim = X.shape[1]
+
+    # fit sklearn GP
+    self.GP.fit(X,fX)
+
+
+  def predict(self, xx, std = False):
+    """predict Ghat(x) = min_alpha G_beta(x,alpha)
+    xx: 2D array of points
+    std: Bool
+    """
+    if std == True:
+      print('')
+      print("ERROR: MCRiskNeutral has no variance")
+      quit()
+
+    # storage
+    N    = np.shape(xx)[0]
+    frn  = np.zeros(N) 
+
+    # for each x in xx calculate risk neutral
+    for i in range(N):
+      # f(x-U) with Monte Carlo
+      U      = self.p(self.num_points_MC)
+      frn[i] = np.mean(self.GP.predict(xx[i]-U))
+
+    return frn
+
+  def update(self, xx,yy):
+    """  update gp with new points
+    """
+    self.X = np.vstack((self.X,xx))
+    self.fX = np.concatenate((self.fX,[yy]))
+    self.fit(self.X,self.fX)
+
+
+
+
 class CVaR():
   """CVaR/VaR surrogate
   p: function handle for distribution
@@ -123,7 +183,7 @@ class CVaR():
   num_points_MC: number of points used in Monte Carlo
   """
   
-  def __init__(self,kernel,p,beta = 0.95, num_points_MC = 500):
+  def __init__(self,kernel,p,beta = 0.95, num_points_MC = 1000):
     self.dim    = 0;    # input data dimension
     self.X      = None; # data points
     self.fX     = None; # function evals
@@ -173,6 +233,69 @@ class CVaR():
       Ghat[i] = prob.value
 
     return Ghat
+
+  def update(self, xx,yy):
+    """  update gp with new points
+    """
+    self.X = np.vstack((self.X,xx))
+    self.fX = np.concatenate((self.fX,[yy]))
+    self.fit(self.X,self.fX)
+
+
+
+
+class MeanVariance():
+  """Risk Neutral calculated from Monte Carlo on the GP
+  p: function handle for generating perturbations
+  p takes in an integer number of points and returns a 2D array
+  of vectors
+  beta: confidence level for CVaR/VaR
+  num_points_MC: number of points used in Monte Carlo
+  """
+  
+  def __init__(self,kernel,p, eta=1.0, num_points_MC = 1000):
+    self.dim    = 0;    # input data dimension
+    self.X      = None; # data points
+    self.fX     = None; # function evals
+    self.GP     = GPR(kernel=kernel) # gaussian process
+    self.p      = p     # generates perturbations U
+    self.eta    = eta
+    self.num_points_MC = num_points_MC # number of points for monte carlo
+
+
+  # "fit" a GP to the data
+  def fit(self, X,fX):
+    # update data
+    self.X  = X;
+    self.fX = fX;
+    self.dim = X.shape[1]
+
+    # fit sklearn GP
+    self.GP.fit(X,fX)
+
+
+  def predict(self, xx, std = False):
+    """predict Ghat(x) = min_alpha G_beta(x,alpha)
+    xx: 2D array of points
+    std: Bool
+    """
+    if std == True:
+      print('')
+      print("ERROR: MCRiskNeutral has no variance")
+      quit()
+
+    # storage
+    N        = np.shape(xx)[0]
+    meanVar  = np.zeros(N) 
+
+    # for each x in xx calculate mean + eta*variance
+    for i in range(N):
+      # f(x-U) with Monte Carlo
+      U    = self.p(self.num_points_MC)
+      f    = self.GP.predict(xx[i]-U)
+      meanVar[i]  = np.mean(f) + self.eta*np.var(f)
+
+    return meanVar
 
   def update(self, xx,yy):
     """  update gp with new points
