@@ -174,8 +174,6 @@ class CVaR():
 
     return Ghat
 
-
-
   def update(self, xx,yy):
     """  update gp with new points
     """
