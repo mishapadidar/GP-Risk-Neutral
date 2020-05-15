@@ -25,7 +25,7 @@ f = lambda x: -np.exp(-100*(x-0.8)**2)+np.exp(-2*(x-1)**2)+np.exp(-2*(x+1.5)**2)
 
 # basic info
 dim        = 1
-N = 80
+N = 300
 a = -1.5
 b = 1.5
 X = np.linspace(a,b,N)
@@ -35,7 +35,7 @@ fX = f(X)
 mu         = 0.0
 sigma      = np.sqrt(0.01)
 p = lambda num_pts: np.random.normal(mu, sigma, (num_pts,dim))
-num_points_MC = 1000
+num_points_MC = 5000
 beta = 0.95
 
 # surrogate
@@ -53,7 +53,7 @@ surrogate.fit(X.reshape((N,dim)),fX)
 #=============================================================
 
 # test points
-Ntest = 300
+Ntest = 100
 Xtest = np.linspace(a,b,Ntest)
 
 # predict the surrogate
