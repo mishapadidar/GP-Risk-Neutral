@@ -1,8 +1,8 @@
 """
 Example file for Monte-Carlo 1D
 
-Monte-Carlo is here used to compute the objective function of the risk-neutral and mean-variance risk-averse function.
-Both are plotted with the original function
+Compute the Risk-Neutral and Mean-Variance surrogates by 
+Monte Carlo integration on the function f
 """
 import sys
 sys.path.insert(1, '../')
@@ -46,6 +46,6 @@ plt.plot(Xtest.flatten(),ev,linewidth=3, color='r',label='risk-neutral')
 plt.plot(Xtest.flatten(),ev+eta*va,linewidth=3, color='orange',label='risk-averse')
 
 # plot figure
-plt.title('Measures of Risk Calculated with Monte Carlo')
+plt.title('Measures of Risk Calculated via Monte Carlo on function')
 plt.legend()
 plt.show()

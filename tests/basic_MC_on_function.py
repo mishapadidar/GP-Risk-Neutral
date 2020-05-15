@@ -1,5 +1,6 @@
 """
-This example yields a Monte-Carlo calculation with f being the surrogate and should serve as a first step of understanding of how to include the Monte-Carlo in the full Bayesian optimization
+Generate Risk Neutral and Mean-Variance surrogates using
+Monte Carlo on the surrogate
 """
 import sys
 sys.path.insert(1, '../')
