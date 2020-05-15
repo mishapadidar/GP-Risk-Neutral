@@ -167,13 +167,13 @@ class SRBFStrategy():
 
   def generate_evals(self,surrogate):
     # generate candidates
-    dim  = len(self.lb)
+    dim  = surrogate.dim
     C    = np.random.uniform(self.lb,self.ub, (self.num_candidates, dim))
     # estimate function value
     fC   = surrogate.predict(C)
     df   = max(fC)-min(fC)
     # evaluate minimum distance from previous points
-    D    = np.array([min(c-surrogate.X) for c in C]).flatten()
+    D    = np.array([min(np.linalg.norm(c-surrogate.X,axis=1)) for c in C]).flatten()
     # largest minus smallest distance
     dD   = max(D)-min(D)
     # compute score for response surface criterion
@@ -195,4 +195,4 @@ class SRBFStrategy():
     # update weight for next time
     self.wi = (self.weight_index + 1)%self.cycle_length
 
-    return np.array([xopt])
+    return xopt
