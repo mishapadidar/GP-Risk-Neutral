@@ -75,7 +75,7 @@ class EIStrategy():
       candidates[i] = sol.x
       vals[i]       = sol.fun
     iopt    = np.argmin(vals);
-    next_pt = np.array([candidates[iopt]])
+    next_pt = candidates[iopt]
     return next_pt
 
 
