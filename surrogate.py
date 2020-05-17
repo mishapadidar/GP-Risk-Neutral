@@ -42,6 +42,8 @@ class GaussianProcessRegressor():
 
   def update(self, xx,yy):
     """  update gp with new points
+    xx: 2D-array
+    yy: 1D-array
     """
     self.X = np.vstack((self.X,xx))
     self.fX = np.concatenate((self.fX,[yy]))
@@ -95,13 +97,13 @@ class GaussianProcessRiskNeutral():
     
     # compute the predictive mean and covariance
     m = Psi.T @ np.linalg.solve(self.GP.L_.T,np.linalg.solve(self.GP.L_,self.fX));
-    K = Psihat - Psi.T @ np.linalg.solve(self.GP.L_.T,np.linalg.solve(self.GP.L_, Psi))
 
     if std is False:
       # return the mean
       return m
     else:
       # return mean and standard error
+      K = Psihat - Psi.T @ np.linalg.solve(self.GP.L_.T,np.linalg.solve(self.GP.L_, Psi))
       v = np.sqrt(np.diag(K))
       return m, v
 

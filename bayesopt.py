@@ -28,7 +28,7 @@ class BayesianOptimization():
 
 
   """
-  f: function handle
+  f: R^n -> R, function handle
   dim: int, problem dimension
   Sigma: 2D - covariance matrix for perturbations u
           size (dim,dim)
@@ -70,13 +70,13 @@ class BayesianOptimization():
       # evaluate point; ensure it returns number not array
       fi = float(self.f(xi))
       # update surrogate
-      self.surrogate.update(xi,fi)
+      self.surrogate.update(np.atleast_2d(xi),fi)
 
     # save the evaluation history
     self.X  = self.surrogate.X
     self.fX = self.surrogate.fX
 
-    # return surrogate's (not function's) best evaluation
+    # return surrogate's best evaluation (not function's)
     f_surr = self.surrogate.predict(self.X)
     iopt = np.argmin(f_surr)
     fopt = f_surr[iopt]

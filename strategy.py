@@ -1,14 +1,12 @@
-# optimization strategy
-#
-#
-
 import numpy as np
 from scipy.stats import norm
 from scipy.optimize import minimize
 
 
 class RandomStrategy():
-# choose a random point
+  """ Randomly Generate a point
+  output: 1D-array
+  """
 
   def __init__(self,lb,ub):
     self.lb = lb;
@@ -20,29 +18,35 @@ class RandomStrategy():
 
 
 class EIStrategy():
-# expected improvement
+  """
+  Choose the next point by maximizing
+  expected improvement from: equation (35) Jones 2001
+  
+  output: 1D-array
+  """
 
   def __init__(self,lb,ub):
     self.lb = lb;
     self.ub = ub;
     self.num_multistart = 10;
 
-  # equation (35) Jones 2001
-  # xx: evaluation point as a 1D-array
-  # This function cannot evaluate a vector of points
-  # args: [surrogate]
   def objective(self,xx,args):
+    """
+    xx: evaluation point as a 1D-array
+    This function cannot evaluate a vector of points
+    args: [surrogate]
+    """
     # unpack surrogate from optimizer
     surrogate = args[0]
-    # optimizer inputs point in wrong shape
-    xx = xx.reshape((len(xx),surrogate.dim))
+    # surrogate needs 2D-array input
+    xx = np.atleast_2d(xx)
 
     # predict surrogate 
     y,s = surrogate.predict(xx,std = True)
     y   = float(y)
     s   = float(s)
-    # compute min(fX)
-    fmin = min(surrogate.fX)
+    # best point so far, in terms of surrogate, not function, value
+    fmin = min(surrogate.predict(surrogate.X))
     # define u
     u = (fmin-y)/s
     # compute Phi(u): standard normal cdf at u
@@ -54,57 +58,67 @@ class EIStrategy():
 
     return EI
 
-  # negative expected improvement
   def negobjective(self,xx,args):
+    """
+    Negative expected improvement
+    xx: evaluation point as a 1D-array (one point only)
+    args: [surrogate]
+    """
     return -self.objective(xx,args)
 
-  # optimize the expected improvement objective
   def generate_evals(self,surrogate):
-    # candidate points
-    candidates = np.zeros(self.num_multistart);
-    vals       = 0*candidates;
+    """optimize the expected improvement objective
+    input: surrogate
+    output: 1D-array
+    """
     # use multistart
+    best_val = np.inf
     for i in range(self.num_multistart):
-      # minimize expected improvement objective
+      # generate 1D-array initial guess
       x0      = np.random.uniform(self.lb,self.ub)
-      x0 = x0.reshape((len(x0),surrogate.dim))
+      # arguments for optimizer
       args    = [surrogate]
       bounds  = list(zip(self.lb,self.ub))
       # MAXIMIZE expected improvement
       sol = minimize(self.negobjective, x0, args =args, method='SLSQP',bounds =bounds)
-      candidates[i] = sol.x
-      vals[i]       = sol.fun
-    iopt    = np.argmin(vals);
-    next_pt = candidates[iopt]
+      if sol.fun < best_val:
+        next_pt = sol.x
     return next_pt
 
 
 
 
 class POIStrategy():
-
+  """ Optimize Probability of Improvement
+  equation (35) Jones 2001
+  to return next evaluation point
+  
+  return: 1D-array
+  """
   def __init__(self,lb,ub):
     self.lb = lb;
     self.ub = ub;
     self.num_multistart = 10;
     self.alpha = 0.001 # Percent improvement desired
 
-  # equation (35) Jones 2001
-  # xx: evaluation point as a 1D-array
-  # This function cannot evaluate a vector of points
-  # args: [surrogate]
   def objective(self,xx,args):
+    """
+    xx: evaluation point as a 1D-array
+    This function cannot evaluate a vector of points
+    args: [surrogate]
+    return: probabilty of Improvement at xx
+    """
     # unpack surrogate from optimizer
     surrogate = args[0]
-    # optimizer inputs point in wrong shape
-    xx = xx.reshape((len(xx),surrogate.dim))
+    # surrogate needs 2D-array input
+    xx = np.atleast_2d(xx)
 
     # predict surrogate 
     y,s = surrogate.predict(xx,std = True)
     y   = float(y)
     s   = float(s)
-    # compute min(fX)
-    fmin = min(surrogate.fX)
+    # best point so far, in terms of surrogate, not function, value
+    fmin = min(surrogate.predict(surrogate.X))
     # improvement goal
     fgoal = (1.0-self.alpha)*fmin
     # define u
@@ -113,32 +127,34 @@ class POIStrategy():
     POI = norm.cdf(u)
     return POI
 
-  # negative probability of improvement
+
   def negobjective(self,xx,args):
+    """
+    Negative probability of improvement
+    xx: evaluation point as a 1D-array (one point only)
+    args: [surrogate]
+    """
     return -self.objective(xx,args)
 
-  # maximize the probability of improvement objective
-  # using multistart
   def generate_evals(self,surrogate):
-    # candidate points
-    candidates = np.zeros(self.num_multistart);
-    vals       = 0*candidates;
+    """generate next evaluation by optimizing 
+    the probability improvement objective
+    input: surrogate
+    output: 1D-array
+    """
     # use multistart
+    best_val = np.inf
     for i in range(self.num_multistart):
-      # set up optimizer
+      # generate 1D-array initial guess
       x0      = np.random.uniform(self.lb,self.ub)
-      x0      = x0.reshape((len(x0),surrogate.dim))
+      # arguments for optimizer
       args    = [surrogate]
       bounds  = list(zip(self.lb,self.ub))
-      # MAXIMIZE probability of improvement
+      # MAXIMIZE expected improvement
       sol = minimize(self.negobjective, x0, args =args, method='SLSQP',bounds =bounds)
-      candidates[i] = sol.x
-      vals[i]       = sol.fun
-    iopt    = np.argmin(vals);
-    next_pt = np.array([candidates[iopt]])
+      if sol.fun < best_val:
+        next_pt = sol.x
     return next_pt
-
-
 
 
 
