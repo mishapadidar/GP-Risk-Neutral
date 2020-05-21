@@ -207,7 +207,7 @@ class CVaR():
 
 
   def predict(self, xx, std = False):
-    """predict Ghat(x) = min_alpha G_beta(x,alpha)
+    """predict C(x) = min_alpha G_beta(x,alpha)
     xx: 2D array of points
     std: Bool
     """
@@ -218,23 +218,23 @@ class CVaR():
 
     # storage
     N    = np.shape(xx)[0]
-    Ghat = np.zeros(N) 
+    C = np.zeros(N) 
 
-    # for each x in xx calculate Ghat(x)
+    # for each x in xx calculate C(x)
     for i in range(N):
-      # f(x-U) with Monte Carlo
+      # f(x+U) with Monte Carlo on surrogate
       U    = self.p(self.num_points_MC)
-      A    = self.GP.predict(xx[i]-U)
+      S    = self.GP.predict(xx[i]+U)
+      # sort S in ascending order
+      S.sort()
+      # compute the index of the minimizer
+      I = int(np.ceil(self.num_points_MC*self.beta))
+      # minimizer
+      VaR = S[I]
+      # CVaR
+      C[i] = S[I] + np.sum(S[I+1:]-S[I])/(1.-self.beta)/self.num_points_MC
 
-      # solve the optimization problem
-      alpha = cp.Variable()
-      # average the positive values
-      cost = alpha + cp.sum(cp.pos(A-alpha))/(self.num_points_MC*(1.0-self.beta))
-      prob = cp.Problem(cp.Minimize(cost))
-      prob.solve()
-      Ghat[i] = prob.value
-
-    return Ghat
+    return C
 
   def update(self, xx,yy):
     """  update gp with new points
